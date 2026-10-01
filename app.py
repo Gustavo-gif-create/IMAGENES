@@ -50,17 +50,17 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
     else:
         with st.spinner("Analizando datos y procesando con IA..."):
             try:
-                # Inicializar cliente oficial de Gemini
+                # Limpiar clave de la API
                 clean_api_key = str(api_key).strip().strip('"').strip("'")
                 client = genai.Client(api_key=clean_api_key)
                 
                 contents = []
                 
-                # 1. Imagen de referencia
+                # 1. Convertir y agregar imagen de referencia
                 img_ref = Image.open(ref_image_file)
                 contents.append(img_ref)
 
-                # 2. Adjuntos (PDF/Imágenes)
+                # 2. Agregar archivos adjuntos (PDFs o imágenes)
                 if datasheet_files:
                     for uploaded_file in datasheet_files:
                         bytes_data = uploaded_file.getvalue()
@@ -72,42 +72,56 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
                             )
                         )
 
-                # 3. Prompt de instrucción
+                # 3. Prompt de instrucción para el análisis
                 prompt_analisis = f"""
                 Analiza los elementos adjuntos:
-                1. La primera imagen es el ESTILO VISUAL DE MARCA (fondo, iluminación y colores).
-                2. Los archivos/texto corresponden al PRODUCTO O DATASHEET.
+                1. La primera imagen es la REFERENCIA DEL ESTILO VISUAL DE LA MARCA (fondo, colores, iluminación).
+                2. Los archivos adjuntos o texto son las especificaciones técnicas/fotos del PRODUCTO.
                 
-                Información del producto: "{product_text_info}"
+                Texto del producto: "{product_text_info}"
 
                 INSTRUCCIONES:
-                - Extrae el producto, forma y sus 3 características técnicas clave.
-                - Redacta un PROMPT TÉCNICO EN INGLÉS para un modelo de generación de imágenes (Flux).
-                - El prompt debe describir la recreación fotográfica del producto integrado dentro del estilo visual de marca.
-                
-                REGLA: Devuelve ÚNICAMENTE el prompt final en inglés sin explicaciones.
+                - Identifica el producto, sus materiales/forma y sus 3 características principales.
+                - Genera un PROMPT TÉCNICO EN INGLÉS detallado para un generador de imágenes fotorrealistas (Flux/Stable Diffusion).
+                - El prompt debe indicar que se recree el producto perfectamente integrado en el estilo visual, iluminación y paleta de colores de la imagen de referencia de marca.
+
+                REGLA: Devuelve ÚNICAMENTE el prompt final en inglés, sin encabezados ni explicaciones adicionales.
                 """
                 contents.append(prompt_analisis)
 
-                # Llamada usando el modelo indicado por Google: gemini-3.8-flash
-                response = client.models.generate_content(
-                    model='gemini-3.8-flash',
-                    contents=contents
-                )
-                
+                # Lista de fallback para modelos estables y vigentes
+                model_names = ['gemini-2.5-flash', 'gemini-1.5-flash']
+                response = None
+                last_error = None
+
+                for model_name in model_names:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=contents
+                        )
+                        if response and response.text:
+                            break
+                    except Exception as err:
+                        last_error = err
+                        continue
+
+                if not response or not response.text:
+                    raise Exception(f"No se pudo completar con los modelos disponibles: {last_error}")
+
                 final_prompt = response.text.strip()
                 
-                st.success("Análisis completado.")
+                st.success("Análisis completado exitosamente.")
                 with st.expander("Ver el Prompt técnico generado"):
                     st.write(final_prompt)
 
-                # Generación de imagen con Pollinations (Flux)
+                # Generación de la imagen publicitaria
                 with st.spinner("Generando imagen publicitaria..."):
                     encoded_prompt = urllib.parse.quote(final_prompt)
                     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&model=flux&seed=42"
                     
                     st.markdown("### 🎨 Resultado Final")
-                    st.image(image_url, caption="Imagen generada", use_container_width=True)
+                    st.image(image_url, caption="Imagen generada con la línea de diseño de tu marca", use_container_width=True)
 
             except Exception as e:
-                st.error(f"Ocurrió un error: {e}")
+                st.error(f"Ocurrió un error al procesar la solicitud: {e}")
