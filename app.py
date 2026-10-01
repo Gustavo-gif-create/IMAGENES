@@ -40,7 +40,7 @@ with col2:
         accept_multiple_files=True
     )
     
-    # Campo para búsqueda en internet por marca/modelo
+    # Campo para texto de modelo/marca
     product_text_info = st.text_input(
         "O ingresa Marca, Modelo o especificaciones por texto:",
         placeholder="Ej: Camara Hikvision DS-2CD2043G2-I, 4MP, visión nocturna"
@@ -59,50 +59,52 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
     else:
         with st.spinner("Analizando datos y procesando con IA..."):
             try:
-                # Limpiar clave y configurar librería de Google
-                clean_api_key = api_key.strip().strip('"').strip("'")
+                # 1. Configurar la clave de la API limpiando comillas o espacios extras
+                clean_api_key = str(api_key).strip().strip('"').strip("'")
                 genai.configure(api_key=clean_api_key)
                 
-                # Definir lista de contenidos que enviaremos a Gemini
+                # Lista de contenidos que procesará la IA
                 contents = []
                 
-                # 1. Agregar imagen de estilo/marca
+                # 2. Procesar imagen de referencia de marca
                 img_ref = Image.open(ref_image_file)
                 contents.append(img_ref)
 
-                # 2. Agregar archivos adjuntos (PDFs o Imágenes)
+                # 3. Procesar los archivos adjuntos (PDFs e Imágenes)
                 if datasheet_files:
                     for uploaded_file in datasheet_files:
-                        bytes_data = uploaded_file.read()
+                        bytes_data = uploaded_file.getvalue()
                         mime_type = uploaded_file.type
                         
+                        # Empaquetado binario estándar
                         contents.append({
                             "mime_type": mime_type,
                             "data": bytes_data
                         })
 
-                # 3. Construir el prompt de análisis para Gemini
+                # 4. Construir las instrucciones para la IA
                 prompt_analisis = f"""
-                Analiza los insumos proporcionados:
-                1. La primera imagen es el ESTILO VISUAL DE MARCA (colores, iluminación, fondo, paleta, composición y estética general).
-                2. Los archivos adjuntos (si los hay) son los DATASHEETS o FOTOS DEL PRODUCTO.
-                3. Texto ingresado sobre el producto: "{product_text_info}".
+                Analiza los elementos adjuntos:
+                1. La primera imagen es la REFERENCIA DE ESTILO VISUAL DE MARCA (analiza fondo, paleta de colores, iluminación, composición y estética general).
+                2. Los archivos adjuntos en PDF/imágenes o el siguiente texto corresponden al PRODUCTO O DATASHEET.
+                
+                Información del producto en texto: "{product_text_info}"
 
-                INSTRUCCIONES DE TRABAJO:
-                - Extrae el nombre del producto, sus 3 a 5 características principales y su forma/diseño físico.
-                - Redacta un PROMPT TÉCNICO Y DETALLADO EN INGLÉS para un modelo de generación de imágenes (como Flux/Stable Diffusion).
-                - El prompt debe describir la recreación del producto integrado de forma fotorrealista dentro del entorno, iluminación, composición y colores de la IMAGEN DE REFERENCIA DE MARCA.
-                - Especifica que la imagen muestre el producto con iluminación profesional de estudio y elementos gráficos limpios o texto elegante con las características clave.
+                INSTRUCCIONES:
+                - Extrae qué producto es, su forma física, colores principales y sus 3 características técnicas más importantes.
+                - Redacta un PROMPT TÉCNICO Y DETALLADO EN INGLÉS optimizado para generadores de imágenes (ej. Flux/Stable Diffusion).
+                - El prompt debe describir la recreación fotográfica fotorrealista del producto integrado de forma armónica dentro del entorno, iluminación y fondo de la IMAGEN DE REFERENCIA DE MARCA.
+                - Pide explícitamente que la imagen muestre una estética limpia de catálogo/banner publicitario.
 
-                REGLA: Devuelve ÚNICAMENTE el texto del prompt final en inglés. No incluyas introducciones, saludos ni bloques de código markdown.
+                REGLA ESTRICTA: Devuelve ÚNICAMENTE el prompt final en inglés, sin explicaciones ni formato markdown adicional.
                 """
 
                 contents.append(prompt_analisis)
 
-                # Usamos la versión actualizada gemini-2.5-flash
-                model = genai.GenerativeModel('gemini-2.5-flash')
+                # 5. Inicializar el modelo con el nombre estándar universalmente soportado
+                model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
-                # Llamada a la API de Gemini
+                # Llamada de generación de texto/análisis
                 response = model.generate_content(contents)
                 final_prompt = response.text.strip()
                 
@@ -110,7 +112,7 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
                 with st.expander("Ver el Prompt técnico generado por la IA"):
                     st.write(final_prompt)
 
-                # Generación gráfica con la API de Pollinations (Modelo Flux)
+                # 6. Generación de la imagen publicitaria final con Pollinations (Flux)
                 with st.spinner("Dibujando la imagen final con la estética de tu marca..."):
                     encoded_prompt = urllib.parse.quote(final_prompt)
                     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&model=flux&seed=42"
