@@ -61,7 +61,15 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
         with st.spinner("Analizando datos y buscando información con IA..."):
             try:
                 # Inicializar el cliente de Gemini
-                client = genai.Client(api_key=api_key)
+                import google.generativeai as genai
+
+                # Configurar la clave directamente
+                genai.configure(api_key=api_key.strip())
+                model = genai.GenerativeModel('gemini-2.5-flash')
+
+                # Generar contenido
+                response = model.generate_content(contents)
+                final_prompt = response.text.strip()
                 
                 contents = []
                 
