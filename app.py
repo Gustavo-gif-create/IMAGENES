@@ -99,8 +99,8 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
 
                 contents.append(prompt_analisis)
 
-                # Inicializar modelo multimodal
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # Usamos la versión actualizada gemini-2.5-flash
+                model = genai.GenerativeModel('gemini-2.5-flash')
 
                 # Llamada a la API de Gemini
                 response = model.generate_content(contents)
