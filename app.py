@@ -1,6 +1,5 @@
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from PIL import Image
 import urllib.parse
 
@@ -58,19 +57,13 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
     elif not datasheet_files and not product_text_info.strip():
         st.warning("Debes subir al menos un archivo (PDF/Imagen) O escribir la marca/modelo del producto.")
     else:
-        with st.spinner("Analizando datos y buscando información con IA..."):
+        with st.spinner("Analizando datos y procesando con IA..."):
             try:
-                # Inicializar el cliente de Gemini
-                import google.generativeai as genai
-
-                # Configurar la clave directamente
-                genai.configure(api_key=api_key.strip())
-                model = genai.GenerativeModel('gemini-2.5-flash')
-
-                # Generar contenido
-                response = model.generate_content(contents)
-                final_prompt = response.text.strip()
+                # Limpiar clave y configurar librería de Google
+                clean_api_key = api_key.strip().strip('"').strip("'")
+                genai.configure(api_key=clean_api_key)
                 
+                # Definir lista de contenidos que enviaremos a Gemini
                 contents = []
                 
                 # 1. Agregar imagen de estilo/marca
@@ -83,12 +76,10 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
                         bytes_data = uploaded_file.read()
                         mime_type = uploaded_file.type
                         
-                        contents.append(
-                            types.Part.from_bytes(
-                                data=bytes_data,
-                                mime_type=mime_type
-                            )
-                        )
+                        contents.append({
+                            "mime_type": mime_type,
+                            "data": bytes_data
+                        })
 
                 # 3. Construir el prompt de análisis para Gemini
                 prompt_analisis = f"""
@@ -98,7 +89,6 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
                 3. Texto ingresado sobre el producto: "{product_text_info}".
 
                 INSTRUCCIONES DE TRABAJO:
-                - Si se proporciona un texto con marca/modelo y no hay suficiente detalle en los archivos, usa tu capacidad de BÚSQUEDA EN GOOGLE para encontrar la forma exacta, características principales y apariencia del producto.
                 - Extrae el nombre del producto, sus 3 a 5 características principales y su forma/diseño físico.
                 - Redacta un PROMPT TÉCNICO Y DETALLADO EN INGLÉS para un modelo de generación de imágenes (como Flux/Stable Diffusion).
                 - El prompt debe describir la recreación del producto integrado de forma fotorrealista dentro del entorno, iluminación, composición y colores de la IMAGEN DE REFERENCIA DE MARCA.
@@ -109,18 +99,11 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
 
                 contents.append(prompt_analisis)
 
-                # Configurar Gemini con la herramienta de búsqueda de Google activada
-                config = types.GenerateContentConfig(
-                    tools=[{"google_search": {}}]
-                )
+                # Inicializar modelo multimodal
+                model = genai.GenerativeModel('gemini-1.5-flash')
 
-                # Llamada a Gemini 2.5 Flash
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=contents,
-                    config=config
-                )
-                
+                # Llamada a la API de Gemini
+                response = model.generate_content(contents)
                 final_prompt = response.text.strip()
                 
                 st.success("Análisis de información completado exitosamente.")
@@ -130,7 +113,6 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
                 # Generación gráfica con la API de Pollinations (Modelo Flux)
                 with st.spinner("Dibujando la imagen final con la estética de tu marca..."):
                     encoded_prompt = urllib.parse.quote(final_prompt)
-                    # Solicitamos resolución 1024x1024 con el modelo Flux
                     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&model=flux&seed=42"
                     
                     st.markdown("### 🎨 Resultado Final")
