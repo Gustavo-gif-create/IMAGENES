@@ -89,9 +89,9 @@ if st.button("🚀 Analizar y Generar Imagen", type="primary"):
                 """
                 contents.append(prompt_analisis)
 
-                # Llamada usando el modelo actual de Gemini
+                # Llamada usando el modelo indicado por Google: gemini-3.8-flash
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.8-flash',
                     contents=contents
                 )
                 
